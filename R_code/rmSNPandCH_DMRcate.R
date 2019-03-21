@@ -1,6 +1,6 @@
 library(DMRcatedata)
 
-rmSNPandCH <- function(object, dist=2, mafcut=0.05, and=TRUE, rmcrosshyb=TRUE, rmXY=FALSE)
+rmSNPandCH2 <- function(object, dist=2, mafcut=0.05, and=TRUE, rmcrosshyb=TRUE, rmXY=FALSE)
 {
   stopifnot(is.matrix(object))
   dist <- as.integer(dist)

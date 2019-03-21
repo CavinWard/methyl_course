@@ -1,8 +1,18 @@
 ###### script for analyzing methylation data
+#' data is from: https://www.ncbi.nlm.nih.gov/pubmed/30589872
 
 rm(list=ls())
 
-setwd("C:/Users/cavin/Desktop/methyl_course/")
+home=FALSE
+
+if(home)
+{
+  setwd("C:/Users/cavin/Desktop/methyl_course/")
+} else
+{
+  setwd("M:/Methyl Course/methyl_course/")
+}
+
 library(minfi)
 load("GSE99788_Data/Processed Data/WB.noob.RData") # phenotype data
 dim(WB.noob)
@@ -24,6 +34,7 @@ suppressPackageStartupMessages({
   library(knitr) # prints prettily
 })
 
+### extracted code from DMRcate as its install doesn't work for all R versions
 source("R_code/rmSNPandCH_DMRcate.R")
 
 #### set up phenotypes
@@ -36,13 +47,14 @@ pheno$gender <- factor(pheno$gender)
 rownames(pheno) <- pheno$geo_accession
 pheno <- pheno[,-1] #### remove geo_accession column, is now the rownames
 
+### can remove WB.noob now as don't need phenotype info
 rm(WB.noob)
 
 #### quick look at the balance of disease_sate across the chips
 table(pheno[,c("chip","disease_state")])
 
 #### remove snp and non CpG probes
-betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
+betas.clean = rmSNPandCH2(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
 nCpG = dim(betas.clean)[1]
 nCpG
 
@@ -91,7 +103,7 @@ summary(lm(CpG.mlevel~pheno$disease_state))$adj.r.squared
 #'## EWAS and results using CpGassoc
 #'see [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
 
-#' Smoking as predictor  
+#' Disease State (chron's disease or not) as predictor  
 #' note that CpGassoc is quite fast for running almost a million regressions!
 
 pheno$Chrons = ifelse(pheno$disease_state=="Crohn's Disease",1,0)
