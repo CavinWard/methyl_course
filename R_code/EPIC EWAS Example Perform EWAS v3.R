@@ -16,7 +16,6 @@ if(home)
 library(minfi)
 load("GSE99788_Data/Processed Data/WB.noob.RData") # phenotype data
 dim(WB.noob)
-cellprop<-read.csv("GSE99788_Data/GSE99788 Pheno/GSE99788_cellprops.csv") # cell type composition
 load("GSE99788_Data/Processed Data/betas.rcp.RData") # processed betas
 load("GSE99788_Data/Processed Data/Gbeta.RData") # annotation file
 
@@ -41,7 +40,6 @@ suppressPackageStartupMessages({
 #### set up phenotypes
 pheno = data.frame(pData(WB.noob))
 pheno = pheno[,c("geo_accession","disease_state","gender","age","chip")]
-pheno = merge(pheno, cellprop, by.x="geo_accession", by.y="samp")
 pheno$disease_state <- factor(pheno$disease_state)
 pheno$chip <- factor(pheno$chip)
 pheno$gender <- factor(pheno$gender)
@@ -116,16 +114,17 @@ table(results.basic$results[,3] < 0.05/(nCpG))
 table(results.basic$results[,5] < 0.05)
 
 #### now adjusted
+#### for blood data adjusted results would include cell counts
 results.adj = cpg.assoc(
   betas.clean
   ,pheno$Chrons
-  ,covariates=pheno[,c("gender","age","chip","CD8T","CD4T","NK","Bcell","Mono","Neu")]
+  ,covariates=pheno[,c("chip","gender","age")]
 )
 
 #' FDR significant hits
 table(results.adj$results[,5] < 0.05)
 
-print(results.adj) ### now there are no significant results
+print(results.adj) ### now this one significant site
 
 ###################################################################
 #### QQ Plots and Volcano plots are two common ways of visualizing the data to check that basic assumptions hold
