@@ -3,7 +3,7 @@
 
 rm(list=ls())
 
-home=FALSE
+home=TRUE
 
 if(home)
 {
@@ -36,7 +36,7 @@ suppressPackageStartupMessages({
 })
 
 ### extracted code from DMRcate as its install doesn't work for all R versions
-source("R_code/rmSNPandCH_DMRcate.R")
+#source("R_code/rmSNPandCH_DMRcate.R")
 
 #### set up phenotypes
 pheno = data.frame(pData(WB.noob))
@@ -55,7 +55,7 @@ rm(WB.noob)
 table(pheno[,c("chip","disease_state")])
 
 #### remove snp and non CpG probes
-betas.clean = rmSNPandCH2(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
+betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
 nCpG = dim(betas.clean)[1]
 nCpG
 
@@ -72,7 +72,7 @@ knitr::kable(cbind(Min   = round( tapply(CpG.level,pheno$disease_state,min   ),3
 
 #' boxplot by disease state
 par(mfrow=c(1,1))
-boxplot(CpG.level ~ pheno$disease_state, main=paste0("Beta-values\n", CpG.name), col=c("blue","red"),ylim=c(.5,1))
+boxplot(CpG.level ~ pheno$disease_state, main=paste0("Beta-values\n", CpG.name), col=c("blue","red"))
 
 #' linear regression on betas
 summary(lm(CpG.level~pheno$disease_state))$coefficients[2,c("Estimate", "Pr(>|t|)","Std. Error")]
@@ -108,7 +108,7 @@ summary(lm(CpG.mlevel~pheno$disease_state))$adj.r.squared
 #' note that CpGassoc is quite fast for running almost a million regressions!
 
 pheno$Chrons = ifelse(pheno$disease_state=="Crohn's Disease",1,0)
-system.time(results.basic <- cpg.assoc(betas.clean, pheno$Chrons)) ### very very fast
+system.time(results.basic <- cpg.assoc(betas.clean, pheno$Chrons, covariates=pheno[,c("chip")])) ### very very fast
 
 #' Bonferroni significant hits
 table(results.basic$results[,3] < 0.05/(nCpG))
@@ -122,6 +122,9 @@ results.adj = cpg.assoc(
   ,covariates=pheno[,c("gender","age","chip","CD8T","CD4T","NK","Bcell","Mono","Neu")]
 )
 
+#' FDR significant hits
+table(results.adj$results[,5] < 0.05)
+
 print(results.adj) ### now there are no significant results
 
 ###################################################################
@@ -134,17 +137,28 @@ lambda <- function(p) median(qchisq(p, df=1, lower.tail=FALSE), na.rm=TRUE) / qc
 
 #' with Bonferroni threshold and current FDR
 par(mfrow=c(1,2))
-plot(results2$coefficients[,4],-log10(results2$results[,3]), 
+plot(results.adj$coefficients[,4],-log10(results.adj$results[,3]), 
      xlab="Estimate", ylab="-log10(Pvalue)", main="Volcano Plot\nadjusted for cell proportions",ylim=c(0,8))
 #Bonferroni threshold & FDR threshold
 abline(h = -log10(0.05/(nCpG)), lty=1, col="red", lwd=2)
 
 plot(results.adj)
 
-#' Lambda before cell type adjustment
+#' Lambda before adjustments
 lambda(results.basic$results[,3])
-#' Lambda after cell type adjustment
+#' Lambda after adjustments
 lambda(results.adj$results[,3])
+
+basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
+full.merge <- merge(results.adj$results, results.adj$coefficients, by.x="CPG.Labels", by.y=0)
+
+par(mfrow=c(1,1))
+plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size[basic.merge$P.value < 0.01], 
+     xlab="Full Estimate", ylab="Basic Estimate", main="Comparison of Beta for Full and Basic Model")
+#Bonferroni threshold & FDR threshold
+abline(a=0, b=1, col="red", lty="dashed")
+points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.size[basic.merge$P.value < 1E-6], 
+       col="red", pch=19, cex=(1+(-log10(full.merge$P.value[basic.merge$P.value < 1E-6])/5) ) )
 
 
 
@@ -195,7 +209,7 @@ qqman::manhattan(datamanhat,"Chr","Mapinfo", "Pval", "CpG",
 #### Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
 #' First we need to set up a model
 
-model = model.matrix( ~Chrons+gender+age,data=pheno)
+model = model.matrix( ~Chrons+factor(chip),data=pheno)
 
 #'Let's run the regional analysis using the Beta-values from our preprocessed data
 #' First annotate the data so that the regions can be determined based on nearby probes
@@ -246,9 +260,54 @@ end = as.integer(coord[4])
 cpgs = subset(dmr.chrons$input, CHR == chr & pos >= start & pos <= end)
 knitr::kable(cpgs)
 
-         
+##### enrichement analysis with MissMethyl
+library(missMethyl)
+
+gst <- gometh(sig.cpg=basic.merge$CPG.Labels[basic.merge$FDR<0.1], all.cpg=basic.merge$CPG.Labels, collection="GO", array.type="EPIC", prior.prob=TRUE)
+gst <- subset(gst, N > 2) ### require 3 or more CpGs
+head(gst[order(gst$P.DE),])
 
 ## Mendelian Randomization
 #' examine a Mendelian Randomization analysis 
 
+library(TwoSampleMR)
+library(MRInstruments)
 
+data("aries_mqtl")
+
+adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-4])
+aries_exp_basic <- format_aries_mqtl(subset(adult_mqtl_basic, age=="Middle age"))
+basic <- subset(basic, CPG.Labels%in%adult_mqtl_basic$cpg)
+### clump SNPs that are in LD
+aries_exp_basic <- clump_data(aries_exp_basic)
+
+ao <- available_outcomes()
+
+chrons <- subset(ao, grepl("Crohn's", ao$trait) & mr==1)
+chrons <- chrons[order(chrons$sample_size, decreasing=TRUE),]
+
+### extract relevant instruments
+#' extracting from [https://www.ncbi.nlm.nih.gov/pubmed/26192919]
+chrons_instruments <- extract_outcome_data(outcomes=12, snps=unique(c(aries_exp_basic$SNP, aries_exp_full$SNP)))
+
+### if you have trouble with the above scripts can load the pre-extracted instruments and exposures
+# MR Aries mqtl exposure.RData
+# MR Chrons Instruments.RData
+
+### clump SNPs that are in LD
+dat_basic <- harmonise_data(exposure_dat = aries_exp_basic,
+                            outcome_dat = chrons_instruments)
+dat_basic <- power.prune(dat_basic,method.size=T)
+
+mr_basic <- mr(dat_basic)
+mr_basic$exposure <- gsub(" \\(Middle age\\)","",mr_basic$exposure)
+
+mr_basic <- merge(mr_basic, basic.merge[,c("CPG.Labels","P.value","effect.size")], by.x="exposure", by.y="CPG.Labels")
+mr_basic <- merge(mr_basic, IlluminaAnnot[,c("Name","chr","pos","UCSC_RefGene_Name","Relation_to_Island")], by.x="exposure", by.y="Name")
+mr_basic <- mr_basic[order(mr_basic$pval),]
+
+
+mr_basic[mr_basic$pval < 0.05,]
+
+### check memeory usage
+pryr::mem_used()
