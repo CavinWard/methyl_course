@@ -1,10 +1,10 @@
-###### script for analyzing methylation data
+###### script for performing an EWAS of Chron's disease in fibroblast cell samples
 #' data is from: https://www.ncbi.nlm.nih.gov/pubmed/30589872
 
 rm(list=ls())
 
+#### will need to alter this section to set the working directory to be the directory containing the data
 home=TRUE
-
 if(home)
 {
   setwd("C:/Users/cavin/Desktop/methyl_course/")
@@ -13,13 +13,13 @@ if(home)
   setwd("M:/Methyl Course/methyl_course/")
 }
 
+#' load packages and data
 library(minfi)
 load("GSE99788_Data/Processed Data/WB.noob.RData") # phenotype data
 dim(WB.noob)
 load("GSE99788_Data/Processed Data/betas.rcp.RData") # processed betas
 load("GSE99788_Data/Processed Data/Gbeta.RData") # annotation file
 
-#' load packages
 suppressPackageStartupMessages({
   library(CpGassoc) # for running association analysis between methylation levels values and phenotype of interest
   library(data.table) # for fast aggregation of large data 
@@ -34,10 +34,8 @@ suppressPackageStartupMessages({
   library(knitr) # prints prettily
 })
 
-### extracted code from DMRcate as its install doesn't work for all R versions
-#source("R_code/rmSNPandCH_DMRcate.R")
 
-#### set up phenotypes
+#' set up phenotypes
 pheno = data.frame(pData(WB.noob))
 pheno = pheno[,c("geo_accession","disease_state","gender","age","chip")]
 pheno$disease_state <- factor(pheno$disease_state)
@@ -57,7 +55,7 @@ betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRU
 nCpG = dim(betas.clean)[1]
 nCpG
 
-##### first let's look at one CpG
+#' first let's look at one CpG
 CpG.name = "cg09234453"
 CpG.level <- betas.clean[CpG.name,]
 
@@ -75,7 +73,7 @@ boxplot(CpG.level ~ pheno$disease_state, main=paste0("Beta-values\n", CpG.name),
 #' linear regression on betas
 summary(lm(CpG.level~pheno$disease_state))$coefficients[2,c("Estimate", "Pr(>|t|)","Std. Error")]
 
-#### now take a look at M-values
+#### now take a look at M-values for the same CpG
 CpG.mlevel = log2(CpG.level/(1-CpG.level))
 
 knitr::kable(cbind(Min    = round( tapply(CpG.mlevel, pheno$disease_state,min   ),3),
@@ -85,11 +83,12 @@ knitr::kable(cbind(Min    = round( tapply(CpG.mlevel, pheno$disease_state,min   
                    SD     = round( tapply(CpG.mlevel, pheno$disease_state,sd    ),3),
                    N      = table(pheno$disease_state)))
 
+#' Side by side boxplots of Beta values and M-values
 par(mfrow=c(1,2))
 boxplot(CpG.level  ~ pheno$disease_state, main=paste0("Beta-values\n",CpG.name), col=c("blue","red"))
 boxplot(CpG.mlevel ~ pheno$disease_state, main=paste0("M-values\n"   ,CpG.name), col=c("blue","red"))
 
-### now do regression on M-values
+#' now do regression on M-values
 summary(lm(CpG.mlevel~pheno$disease_state))$coefficients[2,c("Estimate", "Pr(>|t|)","Std. Error")]
 
 #' we can always extract measures of the relative quality of statistical models - e.g. adjusted R2 - to look at model performance  
@@ -99,8 +98,8 @@ summary(lm(CpG.level~pheno$disease_state))$adj.r.squared
 #' model on mvalues
 summary(lm(CpG.mlevel~pheno$disease_state))$adj.r.squared
 
-#'## EWAS and results using CpGassoc
-#'see [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
+#' ## EWAS and results using CpGassoc
+#'for info on CpGassoc [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
 
 #' Disease State (chron's disease or not) as predictor  
 #' note that CpGassoc is quite fast for running almost a million regressions!
@@ -113,7 +112,7 @@ table(results.basic$results[,3] < 0.05/(nCpG))
 #' FDR significant hits
 table(results.basic$results[,5] < 0.05)
 
-#### now adjusted
+#' Now Look at a model adjusted for age and gender
 #### for blood data adjusted results would include cell counts
 results.adj = cpg.assoc(
   betas.clean
@@ -129,18 +128,21 @@ print(results.adj) ### now this one significant site
 ###################################################################
 #### QQ Plots and Volcano plots are two common ways of visualizing the data to check that basic assumptions hold
 #' Volcano Plot-results.adj and QQ plot
-#' Lambda - this is a summary measure of genomic inflation  
-#' ratio of observed vs expected median p-value - is there early departure of the qqline
-#' estimated at -log10(median=0.5) ~ 0.3 on the x-axis of a qqplot  
+#' Lambda - is a summary measure of p-value inflation that is typical in the genomics literature  
+#' Lambda is calculated as the ratio of observed vs expected median p-value - is there early departure of the qqline
+#' estimated at -log10(median=0.5) ~ 0.3 on the x-axis of a qqplot 
+
+#' First define the lambda function 
 lambda <- function(p) median(qchisq(p, df=1, lower.tail=FALSE), na.rm=TRUE) / qchisq(0.5, df=1)
 
-#' with Bonferroni threshold and current FDR
+#' Volcano plot with Bonferroni threshold 
 par(mfrow=c(1,2))
 plot(results.adj$coefficients[,4],-log10(results.adj$results[,3]), 
      xlab="Estimate", ylab="-log10(Pvalue)", main="Volcano Plot\nadjusted for cell proportions",ylim=c(0,8))
 #Bonferroni threshold & FDR threshold
 abline(h = -log10(0.05/(nCpG)), lty=1, col="red", lwd=2)
 
+#' QQ plot
 plot(results.adj)
 
 #' Lambda before adjustments
@@ -148,13 +150,16 @@ lambda(results.basic$results[,3])
 #' Lambda after adjustments
 lambda(results.adj$results[,3])
 
+#' create files which include both the effect estimates and p-values for further plots
 basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
 full.merge <- merge(results.adj$results, results.adj$coefficients, by.x="CPG.Labels", by.y=0)
 
+#' This plot compares the effect estimates for the basic and adjusted model
+#' CpGs with P < 1E-6 are highlighted in red and their size is proportional to the p-value (bigger point = smaller p-value)
 par(mfrow=c(1,1))
 plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size[basic.merge$P.value < 0.01], 
      xlab="Full Estimate", ylab="Basic Estimate", main="Comparison of Beta for Full and Basic Model")
-#Bonferroni threshold & FDR threshold
+# Bonferroni threshold & FDR threshold
 abline(a=0, b=1, col="red", lty="dashed")
 points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.size[basic.merge$P.value < 1E-6], 
        col="red", pch=19, cex=(1+(-log10(full.merge$P.value[basic.merge$P.value < 1E-6])/5) ) )
@@ -163,8 +168,9 @@ points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.siz
 
 ####################################################################
 ##### map results to genome
-#' Map the results to the epigenetic annotation
+#' Map the results to the annotation
 IlluminaAnnot<-as.data.frame(getAnnotation(Gbeta))
+rm(Gbeta); gc()
 
 #' annotate results
 results.anno <- results.adj$results
@@ -176,14 +182,14 @@ results.anno <- cbind(results.anno, results.adj$coefficients)
 
 #' Restrict to good quality probes and order data frames
 IlluminaAnnot <- IlluminaAnnot[IlluminaAnnot$Name %in% results.anno$CPG.Labels,]
-#### 791 probes in results but not annotation
 results.anno <- results.anno[results.anno$CPG.Labels %in% IlluminaAnnot$Name,]
+
 IlluminaAnnot <- IlluminaAnnot[match(results.anno$CPG.Labels, IlluminaAnnot$Name),]
 
-#' Check that CpGs are align
+#' Check that CpGs are aligned
 identical(IlluminaAnnot$Name,results.anno$CPG.Labels)
 
-#### switch this to using a merge if CpGs don't align
+#' radid means of creating a dataframe of results provided they are all aligned
 datamanhat <- data.frame(CpG=results.anno$CPG.Labels, Chr=IlluminaAnnot$chr,
                          Mapinfo=IlluminaAnnot$pos, UCSC_RefGene_Name=IlluminaAnnot$UCSC_RefGene_Name, 
                          Pval=results.anno$P.value, Eff.Size = results.anno$effect.size, Std.Error = results.anno$std.error)
@@ -191,7 +197,7 @@ datamanhat <- data.frame(CpG=results.anno$CPG.Labels, Chr=IlluminaAnnot$chr,
 #' see where the top hits are
 head(datamanhat[order(datamanhat$Pval), ],n=7)
 
-#'## Manhattan plot for cell-type adjusted EWAS  
+#'## Manhattan plot for age and sex adjusted EWAS  
 #' Reformat the variable Chr (so we can simplify and use a numeric x-axis)
 datamanhat$Chr <- as.numeric(sub("chr","",datamanhat$Chr))
 
@@ -204,8 +210,8 @@ qqman::manhattan(datamanhat,"Chr","Mapinfo", "Pval", "CpG",
           main = "Manhattan Plot \n Adjusted Model",ylim=c(0,8))
 
 
-###### Regional analyses
-#### Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
+#'## Regional analyses
+#' Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
 #' First we need to set up a model
 
 model = model.matrix( ~Chrons+factor(chip),data=pheno)
@@ -255,57 +261,70 @@ start = as.integer(coord[3])
 end = as.integer(coord[4])
 
 #'CpG ID and individual metrics
-
 cpgs = subset(dmr.chrons$input, CHR == chr & pos >= start & pos <= end)
 knitr::kable(cpgs)
 
 ##### enrichement analysis with MissMethyl
 library(missMethyl)
 
+#'MissMethyl will account for the inclusion probability of CpGs on the array to avoid bias in enrichment analyses
 gst <- gometh(sig.cpg=basic.merge$CPG.Labels[basic.merge$FDR<0.1], all.cpg=basic.merge$CPG.Labels, collection="GO", array.type="EPIC", prior.prob=TRUE)
-gst <- subset(gst, N > 2) ### require 3 or more CpGs
+#'Subset to results based on 3 or more CpGs
+gst <- subset(gst, N > 2) 
+
+#'Look at top enriched GO pathways
 head(gst[order(gst$P.DE),])
 
 ## Mendelian Randomization
 #' examine a Mendelian Randomization analysis 
-
 library(TwoSampleMR)
 library(MRInstruments)
 
+#'extract the mQTL data
 data("aries_mqtl")
 
+#' using the basic model for MR (just so more examples returned)
+#' First limit to CpGs with at least nominal signal in EWAS
 adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-4])
+
+#' Limit to just the middle age data as our EWAS was on adult samples
 aries_exp_basic <- format_aries_mqtl(subset(adult_mqtl_basic, age=="Middle age"))
 basic <- subset(basic, CPG.Labels%in%adult_mqtl_basic$cpg)
-### clump SNPs that are in LD
+
+#' clump SNPs that are in LD
 aries_exp_basic <- clump_data(aries_exp_basic)
 
+#' get available outcomes. If it is your first time will ask you to authenticate
 ao <- available_outcomes()
 
+#' subset to chron's diease instruments
 chrons <- subset(ao, grepl("Crohn's", ao$trait) & mr==1)
 chrons <- chrons[order(chrons$sample_size, decreasing=TRUE),]
+head(chrons)
 
-### extract relevant instruments
-#' extracting from [https://www.ncbi.nlm.nih.gov/pubmed/26192919]
+#'Extract SNP-chrons disease associations from [https://www.ncbi.nlm.nih.gov/pubmed/26192919]
 chrons_instruments <- extract_outcome_data(outcomes=12, snps=unique(c(aries_exp_basic$SNP, aries_exp_full$SNP)))
 
 ### if you have trouble with the above scripts can load the pre-extracted instruments and exposures
-# MR Aries mqtl exposure.RData
-# MR Chrons Instruments.RData
+# load("MR Aries mqtl exposure.RData")
+# load("MR Chrons Instruments.RData")
 
-### clump SNPs that are in LD
+#' clump SNPs that are in LD
 dat_basic <- harmonise_data(exposure_dat = aries_exp_basic,
                             outcome_dat = chrons_instruments)
+#'Prune any redundant SNPs
 dat_basic <- power.prune(dat_basic,method.size=T)
 
+#'Run the MR
 mr_basic <- mr(dat_basic)
-mr_basic$exposure <- gsub(" \\(Middle age\\)","",mr_basic$exposure)
 
+#'Merge in data on our EWAS effect (to check for consistency) and location 
+mr_basic$exposure <- gsub(" \\(Middle age\\)","",mr_basic$exposure)
 mr_basic <- merge(mr_basic, basic.merge[,c("CPG.Labels","P.value","effect.size")], by.x="exposure", by.y="CPG.Labels")
 mr_basic <- merge(mr_basic, IlluminaAnnot[,c("Name","chr","pos","UCSC_RefGene_Name","Relation_to_Island")], by.x="exposure", by.y="Name")
 mr_basic <- mr_basic[order(mr_basic$pval),]
 
-
+#' take a look at the top results from the MR
 mr_basic[mr_basic$pval < 0.05,]
 
 ### check memeory usage
