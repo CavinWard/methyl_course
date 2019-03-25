@@ -19,7 +19,8 @@ if(!any(grepl("TwoSampleMR", installed.packages()[,1])))
   if(any(grepl("devtools",installed.packages()[,1])) ) ## if devtools installed and TwoSampleMR still not
   {
     library(devtools)
-    install_github("MRCIEU/TwoSampleMR")
+    devtools::install_github("MRCIEU/TwoSampleMR")
+    devtools::install_github("MRCIEU/MRInstruments")
   } else
   {
     cat("devtools not installed; cannot install TwoSampleMR")
