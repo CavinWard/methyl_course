@@ -1,6 +1,19 @@
-###### script for performing an EWAS of Chron's disease in fibroblast cell samples
-#' data is from: https://www.ncbi.nlm.nih.gov/pubmed/30589872
+---
+title: "Chron's disease EWAS with Illumina EPIC Array Data"
+output: 
+  html_document:
+    keep_md: true
+---
 
+Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
+
+This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples (GSE99788). 
+
+To begin the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly.
+
+You will then need to download the pre-processed methylation data files which are available at this [link](https://drive.google.com/open?id=1OKLguigp0jfz5ljRLeV_MEbrCHSjFLV6).
+
+```{r include = FALSE}
 rm(list=ls())
 
 #### will need to alter this section to set the working directory to be the directory containing the data
@@ -33,9 +46,10 @@ suppressPackageStartupMessages({
   library(stringi) # string manipulation
   library(knitr) # prints prettily
 })
+```
 
-
-#' set up phenotypes
+First set up the phenotypes
+```{r}
 pheno = data.frame(pData(WB.noob))
 pheno = pheno[,c("geo_accession","disease_state","gender","age","chip")]
 pheno$disease_state <- factor(pheno$disease_state)
@@ -43,19 +57,27 @@ pheno$chip <- factor(pheno$chip)
 pheno$gender <- factor(pheno$gender)
 rownames(pheno) <- pheno$geo_accession
 pheno <- pheno[,-1] #### remove geo_accession column, is now the rownames
-
 ### can remove WB.noob now as don't need phenotype info
 rm(WB.noob)
+```
 
-#### quick look at the balance of disease_sate across the chips
+
+# Let's take a quick look at the balance of disease_sate across the chips
+
+```{r}
 table(pheno[,c("chip","disease_state")])
+```
 
-#### remove snp and non CpG probes
+Now Remove snp and non CpG probes
+
+```{r}
 betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
 nCpG = dim(betas.clean)[1]
 nCpG
+```
 
-#' first let's look at one CpG
+# First let's look at one CpG (cg09234453)
+```{r fig.cap="Boxplot by disease state"}
 CpG.name = "cg09234453"
 CpG.level <- betas.clean[CpG.name,]
 
@@ -66,14 +88,22 @@ knitr::kable(cbind(Min   = round( tapply(CpG.level,pheno$disease_state,min   ),3
                    SD    = round( tapply(CpG.level,pheno$disease_state,sd    ),3),
                    N     = table( pheno$disease_state )))
 
-#' boxplot by disease state
+# Now let's examine boxplot by disease state
 par(mfrow=c(1,1))
 boxplot(CpG.level ~ pheno$disease_state, main=paste0("Beta-values\n", CpG.name), col=c("blue","red"))
 
+```
+
+A quick linear regression on the beta values
+```{r}
 #' linear regression on betas
 summary(lm(CpG.level~pheno$disease_state))$coefficients[2,c("Estimate", "Pr(>|t|)","Std. Error")]
 
-#### now take a look at M-values for the same CpG
+```
+
+
+# Now take a look at M-values for the same CpG
+```{r}
 CpG.mlevel = log2(CpG.level/(1-CpG.level))
 
 knitr::kable(cbind(Min    = round( tapply(CpG.mlevel, pheno$disease_state,min   ),3),
@@ -97,13 +127,15 @@ summary(lm(CpG.level~pheno$disease_state))$adj.r.squared
 
 #' model on mvalues
 summary(lm(CpG.mlevel~pheno$disease_state))$adj.r.squared
+```
+
 
 #' ## EWAS and results using CpGassoc
 #'for info on CpGassoc [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
 
-#' Disease State (chron's disease or not) as predictor  
-#' note that CpGassoc is quite fast for running almost a million regressions!
-
+We are using Disease State (chron's disease or not) as predictor  
+Note that CpGassoc is quite fast for running almost a million regressions!
+```{r}
 pheno$Chrons = ifelse(pheno$disease_state=="Crohn's Disease",1,0)
 system.time(results.basic <- cpg.assoc(betas.clean, pheno$Chrons, covariates=pheno[,c("chip")])) ### very very fast
 
@@ -125,13 +157,13 @@ table(results.adj$results[,5] < 0.05)
 
 print(results.adj) ### now this one significant site
 
-###################################################################
-#### QQ Plots and Volcano plots are two common ways of visualizing the data to check that basic assumptions hold
-#' Volcano Plot-results.adj and QQ plot
-#' Lambda - is a summary measure of p-value inflation that is typical in the genomics literature  
-#' Lambda is calculated as the ratio of observed vs expected median p-value - is there early departure of the qqline
-#' estimated at -log10(median=0.5) ~ 0.3 on the x-axis of a qqplot 
+```
 
+
+#### QQ Plots and Volcano plots 
+QQ Plots and Volcano plots are two common ways of visualizing the data to check that basic assumptions hold. Lambda - is a summary measure of p-value inflation that is typical in the genomics literature. Lambda is calculated as the ratio of observed vs expected median p-value - is there early departure of the qqline and is estimated at -log10(median=0.5) ~ 0.3 on the x-axis of a qqplot 
+
+```{r fig.cap="Volcano Plot"}
 #' First define the lambda function 
 lambda <- function(p) median(qchisq(p, df=1, lower.tail=FALSE), na.rm=TRUE) / qchisq(0.5, df=1)
 
@@ -142,19 +174,21 @@ plot(results.adj$coefficients[,4],-log10(results.adj$results[,3]),
 #Bonferroni threshold & FDR threshold
 abline(h = -log10(0.05/(nCpG)), lty=1, col="red", lwd=2)
 
-#' QQ plot
-plot(results.adj)
+```
 
+```{r fig.cap="QQ plot"}
 #' Lambda before adjustments
 lambda(results.basic$results[,3])
 #' Lambda after adjustments
 lambda(results.adj$results[,3])
+plot(results.adj)
+```
 
+#' This plot compares the effect estimates for the basic and adjusted model
+```{r}
 #' create files which include both the effect estimates and p-values for further plots
 basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
 full.merge <- merge(results.adj$results, results.adj$coefficients, by.x="CPG.Labels", by.y=0)
-
-#' This plot compares the effect estimates for the basic and adjusted model
 #' CpGs with P < 1E-6 are highlighted in red and their size is proportional to the p-value (bigger point = smaller p-value)
 par(mfrow=c(1,1))
 plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size[basic.merge$P.value < 0.01], 
@@ -164,11 +198,14 @@ abline(a=0, b=1, col="red", lty="dashed")
 points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.size[basic.merge$P.value < 1E-6], 
        col="red", pch=19, cex=(1+(-log10(full.merge$P.value[basic.merge$P.value < 1E-6])/5) ) )
 
+```
 
 
-####################################################################
-##### map results to genome
-#' Map the results to the annotation
+# Map Top Hits
+In this section we will map the results to the genome and look at where the top hits are
+
+```{r}
+#' Map the results to the EPIC annotation
 IlluminaAnnot<-as.data.frame(getAnnotation(Gbeta))
 rm(Gbeta); gc()
 
@@ -201,19 +238,19 @@ head(datamanhat[order(datamanhat$Pval), ],n=7)
 #' Reformat the variable Chr (so we can simplify and use a numeric x-axis)
 datamanhat$Chr <- as.numeric(sub("chr","",datamanhat$Chr))
 
-#' the function manhattan needs data.frame including CpG, Chr, MapInfo and Pvalues
-#' ##### fix this
-
 par(mfrow=c(1,1))
 qqman::manhattan(datamanhat,"Chr","Mapinfo", "Pval", "CpG", 
           genomewideline = -log10(0.05/(nCpG)), suggestiveline = FALSE,
           main = "Manhattan Plot \n Adjusted Model",ylim=c(0,8))
+```
 
 
-#'## Regional analyses
-#' Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
-#' First we need to set up a model
 
+#' Regional analyses
+Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
+
+```{r}
+#' Frist set up a model
 model = model.matrix( ~Chrons+factor(chip),data=pheno)
 
 #'Let's run the regional analysis using the Beta-values from our preprocessed data
@@ -251,7 +288,10 @@ DMR.plot(ranges=results.ranges, dmr=1, CpGs=betas.clean, phen.col=cols, what = "
 #' cleanup
 rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes);gc()
 
+```
 
+## Can also look at table of top regions
+```{r}
 #'Extracting CpGs-names and locations
 coord = dmr.chrons$results$coord[1]
 coord = stri_match(coord,regex="^(chr.+):(\\d+)-(\\d+)$")
@@ -264,10 +304,16 @@ end = as.integer(coord[4])
 cpgs = subset(dmr.chrons$input, CHR == chr & pos >= start & pos <= end)
 knitr::kable(cpgs)
 
-##### enrichement analysis with MissMethyl
+```
+
+
+
+# Enrichement analysis with MissMethyl
+MissMethyl will account for the inclusion probability of CpGs on the array to avoid bias in enrichment analyses
+```{r}
 library(missMethyl)
 
-#'MissMethyl will account for the inclusion probability of CpGs on the array to avoid bias in enrichment analyses
+
 gst <- gometh(sig.cpg=basic.merge$CPG.Labels[basic.merge$FDR<0.1], all.cpg=basic.merge$CPG.Labels, collection="GO", array.type="EPIC", prior.prob=TRUE)
 #'Subset to results based on 3 or more CpGs
 gst <- subset(gst, N > 2) 
@@ -275,7 +321,13 @@ gst <- subset(gst, N > 2)
 #'Look at top enriched GO pathways
 head(gst[order(gst$P.DE),])
 
-## Mendelian Randomization
+```
+
+
+# Mendelian Randomization using [MR-base](http://www.mrbase.org/) and [TwoSampleMR](https://github.com/MRCIEU/TwoSampleMR)
+First extract necessary data
+
+```{r}
 #' examine a Mendelian Randomization analysis 
 library(TwoSampleMR)
 library(MRInstruments)
@@ -297,6 +349,10 @@ aries_exp_basic <- clump_data(aries_exp_basic)
 #' get available outcomes. If it is your first time will ask you to authenticate
 ao <- available_outcomes()
 
+```
+
+Subset data to just the Chron's Disease outcomes
+```{r}
 #' subset to chron's diease instruments
 chrons <- subset(ao, grepl("Crohn's", ao$trait) & mr==1)
 chrons <- chrons[order(chrons$sample_size, decreasing=TRUE),]
@@ -309,13 +365,21 @@ chrons_instruments <- extract_outcome_data(outcomes=12, snps=unique(c(aries_exp_
 # load("MR Aries mqtl exposure.RData")
 # load("MR Chrons Instruments.RData")
 
+```
+
+Clumping data prevents SNPs in LD from biasing associations
+```{r}
 #' clump SNPs that are in LD
 dat_basic <- harmonise_data(exposure_dat = aries_exp_basic,
                             outcome_dat = chrons_instruments)
 #'Prune any redundant SNPs
 dat_basic <- power.prune(dat_basic,method.size=T)
 
-#'Run the MR
+```
+
+
+## Run the MR
+```{r}
 mr_basic <- mr(dat_basic)
 
 #'Merge in data on our EWAS effect (to check for consistency) and location 
@@ -327,5 +391,11 @@ mr_basic <- mr_basic[order(mr_basic$pval),]
 #' take a look at the top results from the MR
 mr_basic[mr_basic$pval < 0.05,]
 
-### check memeory usage
+```
+
+
+#Done! (heck memeory usage just to see)
+```{r}
 pryr::mem_used()
+```
+
