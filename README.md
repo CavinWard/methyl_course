@@ -1,9 +1,4 @@
----
-title: "Chron's disease EWAS with Illumina EPIC Array Data"
-output: 
-  html_document:
-    keep_md: true
----
+# Chron's Disease EWAS Using Illumina EPIC Data
 
 Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
 
