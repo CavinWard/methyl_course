@@ -13,7 +13,7 @@ To begin the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/maste
 
 You will then need to download the pre-processed methylation data files which are available at this [link](https://drive.google.com/open?id=1OKLguigp0jfz5ljRLeV_MEbrCHSjFLV6).
 
-```{r include = FALSE}
+```{r message = FALSE}
 rm(list=ls())
 
 #### will need to alter this section to set the working directory to be the directory containing the data
@@ -61,8 +61,7 @@ pheno <- pheno[,-1] #### remove geo_accession column, is now the rownames
 rm(WB.noob)
 ```
 
-
-# Let's take a quick look at the balance of disease_sate across the chips
+#### Let's take a quick look at the balance of disease_sate across the chips
 
 ```{r}
 table(pheno[,c("chip","disease_state")])
@@ -74,9 +73,10 @@ Now Remove snp and non CpG probes
 betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
 nCpG = dim(betas.clean)[1]
 nCpG
+rm(betas.rcp)
 ```
 
-# First let's look at one CpG (cg09234453)
+#### First let's look at one CpG (cg09234453)
 ```{r fig.cap="Boxplot by disease state"}
 CpG.name = "cg09234453"
 CpG.level <- betas.clean[CpG.name,]
@@ -102,7 +102,7 @@ summary(lm(CpG.level~pheno$disease_state))$coefficients[2,c("Estimate", "Pr(>|t|
 ```
 
 
-# Now take a look at M-values for the same CpG
+#### Now take a look at M-values for the same CpG
 ```{r}
 CpG.mlevel = log2(CpG.level/(1-CpG.level))
 
@@ -129,9 +129,8 @@ summary(lm(CpG.level~pheno$disease_state))$adj.r.squared
 summary(lm(CpG.mlevel~pheno$disease_state))$adj.r.squared
 ```
 
-
-#' ## EWAS and results using CpGassoc
-#'for info on CpGassoc [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
+# Running the EWAS
+#### EWAS performed using CpGassoc. For info on CpGassoc [Barfield et al. Bioinformatics 2012](http://www.ncbi.nlm.nih.gov/pubmed/22451269)  
 
 We are using Disease State (chron's disease or not) as predictor  
 Note that CpGassoc is quite fast for running almost a million regressions!
@@ -168,7 +167,7 @@ QQ Plots and Volcano plots are two common ways of visualizing the data to check 
 lambda <- function(p) median(qchisq(p, df=1, lower.tail=FALSE), na.rm=TRUE) / qchisq(0.5, df=1)
 
 #' Volcano plot with Bonferroni threshold 
-par(mfrow=c(1,2))
+par(mfrow=c(1,1))
 plot(results.adj$coefficients[,4],-log10(results.adj$results[,3]), 
      xlab="Estimate", ylab="-log10(Pvalue)", main="Volcano Plot\nadjusted for cell proportions",ylim=c(0,8))
 #Bonferroni threshold & FDR threshold
@@ -184,7 +183,7 @@ lambda(results.adj$results[,3])
 plot(results.adj)
 ```
 
-#' This plot compares the effect estimates for the basic and adjusted model
+#### This plot compares the effect estimates for the basic and adjusted model
 ```{r}
 #' create files which include both the effect estimates and p-values for further plots
 basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
@@ -202,7 +201,7 @@ points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.siz
 
 
 # Map Top Hits
-In this section we will map the results to the genome and look at where the top hits are
+#### In this section we will map the results to the genome and look at where the top hits are
 
 ```{r}
 #' Map the results to the EPIC annotation
@@ -246,8 +245,8 @@ qqman::manhattan(datamanhat,"Chr","Mapinfo", "Pval", "CpG",
 
 
 
-#' Regional analyses
-Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
+# Regional analyses
+#### Regional analyses can be more powerful than individual CpG analyses as they aggregate signals from a region
 
 ```{r}
 #' Frist set up a model
@@ -286,11 +285,11 @@ DMR.plot(ranges=results.ranges, dmr=1, CpGs=betas.clean, phen.col=cols, what = "
          genome="hg19", samps=1:nrow(pheno))
 
 #' cleanup
-rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes);gc()
+rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes,datamanhat);gc()
 
 ```
 
-## Can also look at table of top regions
+#### Can also look at table of top regions
 ```{r}
 #'Extracting CpGs-names and locations
 coord = dmr.chrons$results$coord[1]
@@ -303,13 +302,13 @@ end = as.integer(coord[4])
 #'CpG ID and individual metrics
 cpgs = subset(dmr.chrons$input, CHR == chr & pos >= start & pos <= end)
 knitr::kable(cpgs)
-
+rm(dmr.chrons)
 ```
 
 
 
 # Enrichement analysis with MissMethyl
-MissMethyl will account for the inclusion probability of CpGs on the array to avoid bias in enrichment analyses
+#### MissMethyl will account for the inclusion probability of CpGs on the array to avoid bias in enrichment analyses
 ```{r}
 library(missMethyl)
 
@@ -325,9 +324,9 @@ head(gst[order(gst$P.DE),])
 
 
 # Mendelian Randomization using [MR-base](http://www.mrbase.org/) and [TwoSampleMR](https://github.com/MRCIEU/TwoSampleMR)
-First extract necessary data
+#### First extract necessary data
 
-```{r}
+```{r message=FALSE}
 #' examine a Mendelian Randomization analysis 
 library(TwoSampleMR)
 library(MRInstruments)
@@ -337,11 +336,10 @@ data("aries_mqtl")
 
 #' using the basic model for MR (just so more examples returned)
 #' First limit to CpGs with at least nominal signal in EWAS
-adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-4])
+adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-3])
 
 #' Limit to just the middle age data as our EWAS was on adult samples
 aries_exp_basic <- format_aries_mqtl(subset(adult_mqtl_basic, age=="Middle age"))
-basic <- subset(basic, CPG.Labels%in%adult_mqtl_basic$cpg)
 
 #' clump SNPs that are in LD
 aries_exp_basic <- clump_data(aries_exp_basic)
@@ -351,7 +349,7 @@ ao <- available_outcomes()
 
 ```
 
-Subset data to just the Chron's Disease outcomes
+#### Subset data to just the Chron's Disease outcomes
 ```{r}
 #' subset to chron's diease instruments
 chrons <- subset(ao, grepl("Crohn's", ao$trait) & mr==1)
@@ -359,7 +357,7 @@ chrons <- chrons[order(chrons$sample_size, decreasing=TRUE),]
 head(chrons)
 
 #'Extract SNP-chrons disease associations from [https://www.ncbi.nlm.nih.gov/pubmed/26192919]
-chrons_instruments <- extract_outcome_data(outcomes=12, snps=unique(c(aries_exp_basic$SNP, aries_exp_full$SNP)))
+chrons_instruments <- extract_outcome_data(outcomes=12, snps=aries_exp_basic$SNP)
 
 ### if you have trouble with the above scripts can load the pre-extracted instruments and exposures
 # load("MR Aries mqtl exposure.RData")
@@ -367,9 +365,9 @@ chrons_instruments <- extract_outcome_data(outcomes=12, snps=unique(c(aries_exp_
 
 ```
 
-Clumping data prevents SNPs in LD from biasing associations
-```{r}
-#' clump SNPs that are in LD
+#### Harmonize the data to insure that alleles are aligned and unambigious
+```{r message=FALSE}
+#' harmonise data
 dat_basic <- harmonise_data(exposure_dat = aries_exp_basic,
                             outcome_dat = chrons_instruments)
 #'Prune any redundant SNPs
@@ -394,7 +392,7 @@ mr_basic[mr_basic$pval < 0.05,]
 ```
 
 
-#Done! (heck memeory usage just to see)
+#Done! (check memeory usage just to see)
 ```{r}
 pryr::mem_used()
 ```

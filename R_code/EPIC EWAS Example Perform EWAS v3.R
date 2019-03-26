@@ -54,6 +54,7 @@ table(pheno[,c("chip","disease_state")])
 betas.clean = rmSNPandCH(betas.rcp,  mafcut = 0.05, and = TRUE, rmcrosshyb = TRUE, rmXY= TRUE)
 nCpG = dim(betas.clean)[1]
 nCpG
+rm(betas.rcp)
 
 #' first let's look at one CpG
 CpG.name = "cg09234453"
@@ -201,9 +202,6 @@ head(datamanhat[order(datamanhat$Pval), ],n=7)
 #' Reformat the variable Chr (so we can simplify and use a numeric x-axis)
 datamanhat$Chr <- as.numeric(sub("chr","",datamanhat$Chr))
 
-#' the function manhattan needs data.frame including CpG, Chr, MapInfo and Pvalues
-#' ##### fix this
-
 par(mfrow=c(1,1))
 qqman::manhattan(datamanhat,"Chr","Mapinfo", "Pval", "CpG", 
           genomewideline = -log10(0.05/(nCpG)), suggestiveline = FALSE,
@@ -249,7 +247,7 @@ DMR.plot(ranges=results.ranges, dmr=1, CpGs=betas.clean, phen.col=cols, what = "
          genome="hg19", samps=1:nrow(pheno))
 
 #' cleanup
-rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes);gc()
+rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes,datamanhat);gc()
 
 
 #'Extracting CpGs-names and locations
@@ -263,6 +261,7 @@ end = as.integer(coord[4])
 #'CpG ID and individual metrics
 cpgs = subset(dmr.chrons$input, CHR == chr & pos >= start & pos <= end)
 knitr::kable(cpgs)
+rm(dmr.chrons)
 
 ##### enrichement analysis with MissMethyl
 library(missMethyl)
@@ -285,7 +284,7 @@ data("aries_mqtl")
 
 #' using the basic model for MR (just so more examples returned)
 #' First limit to CpGs with at least nominal signal in EWAS
-adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-4])
+adult_mqtl_basic <- subset(aries_mqtl, cpg%in%basic.merge$CPG.Labels[basic.merge$P.value < 1E-3])
 
 #' Limit to just the middle age data as our EWAS was on adult samples
 aries_exp_basic <- format_aries_mqtl(subset(adult_mqtl_basic, age=="Middle age"))
