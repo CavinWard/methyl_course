@@ -1,6 +1,6 @@
-# Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
+# Script for performing an EWAS of Chron's disease in fibroblast cell samples
 
-This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples (GSE99788). 
+This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples ([GSE99788](https://www.ncbi.nlm.nih.gov/pubmed/30589872)). 
 
 To begin clone the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly. The packages bsseq and DelayedArray can often cause problems. If this happens delete them manually (go to your R library folder and delete the 'bsseq' and 'DelayedArray' subfolders) and then reinstall them using the proper version of Bioconductor for the R version you are using.
 
