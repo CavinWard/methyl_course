@@ -39,7 +39,7 @@ if(length(cran_install) > 0)
   cat("all CRAN packages installed\n")
 }
 
-bioc_packages <- c("bumphunter","minfi", "FlowSorted.Blood.450k", "missMethyl", "ENmix","IlluminaHumanMethylation450kanno.ilmn12.hg19",
+bioc_packages <- c("bumphunter","minfi", "missMethyl", "ENmix","IlluminaHumanMethylation450kanno.ilmn12.hg19",
                       "IlluminaHumanMethylation450kmanifest", "IlluminaHumanMethylationEPICmanifest",
                       "sva", "IlluminaHumanMethylationEPICanno.ilm10b2.hg19", 
                       "DMRcate", "shinyMethyl","wateRmelon","FDb.InfiniumMethylation.hg19", "GEOquery")

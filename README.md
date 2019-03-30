@@ -1,12 +1,21 @@
-# Chron's Disease EWAS Using Illumina EPIC Data
+---
+title: "Chron's disease EWAS with Illumina EPIC Array Data"
+output: 
+  html_document:
+    keep_md: true
+---
 
 Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
 
 This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples (GSE99788). 
 
-To begin the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly.
+To begin clone the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly. The packages bsseq and DelayedArray can often cause problems. If this happens delete them manually (go to your R library folder and delete the 'bsseq' and 'DelayedArray' subfolders) and then reinstall them using the proper version of Bioconductor for the R version you are using.
 
 You will then need to download the pre-processed methylation data files which are available at this [link](https://drive.google.com/open?id=1OKLguigp0jfz5ljRLeV_MEbrCHSjFLV6).
+
+Below is a Rmarkdown version of the code to be run in this class. The code is adapted from code available [here](https://github.com/allanjust/methylation-lab). 
+
+We begin by setting up the working directory and loading the libraries for the packages installed by 'EPIC EWAS EXAMPLE Package Install v1.R'
 
 
 ```r
@@ -107,7 +116,6 @@ pheno <- pheno[,-1] #### remove geo_accession column, is now the rownames
 ### can remove WB.noob now as don't need phenotype info
 rm(WB.noob)
 ```
-
 
 #### Let's take a quick look at the balance of disease_sate across the chips
 
@@ -250,7 +258,7 @@ system.time(results.basic <- cpg.assoc(betas.clean, pheno$Chrons, covariates=phe
 
 ```
 ##    user  system elapsed 
-##   12.35    0.39   12.73
+##   13.54    0.36   13.97
 ```
 
 ```r
@@ -392,6 +400,16 @@ plot(results.adj)
 #' create files which include both the effect estimates and p-values for further plots
 basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
 full.merge <- merge(results.adj$results, results.adj$coefficients, by.x="CPG.Labels", by.y=0)
+
+### check that dataframes are in the same order
+identical(basic.merge$CPG.Labels, full.merge$CPG.Labels)
+```
+
+```
+## [1] TRUE
+```
+
+```r
 #' CpGs with P < 1E-6 are highlighted in red and their size is proportional to the p-value (bigger point = smaller p-value)
 par(mfrow=c(1,1))
 plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size[basic.merge$P.value < 0.01], 
@@ -400,6 +418,8 @@ plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size
 abline(a=0, b=1, col="red", lty="dashed")
 points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.size[basic.merge$P.value < 1E-6], 
        col="red", pch=19, cex=(1+(-log10(full.merge$P.value[basic.merge$P.value < 1E-6])/5) ) )
+p.e4 = (1+(-log10(1E-4)/5) ); p.e5 = (1+(-log10(1E-5)/5) ); p.e6 = (1+(-log10(1E-6)/5) )
+legend("topleft",legend=c("P = 1E-4", "P = 1E-5","P = 1E-6"), pt.cex=c(p.e4, p.e5, p.e6), pch=19, col="red", bty='n')
 ```
 
 ![](EPIC_EWAS_Example_Perform_EWAS_v3_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
@@ -440,8 +460,8 @@ rm(Gbeta); gc()
 
 ```
 ##             used   (Mb) gc trigger   (Mb)  max used   (Mb)
-## Ncells  17214592  919.4   25396775 1356.4  25396775 1356.4
-## Vcells 370034023 2823.2  563701540 4300.8 469231233 3580.0
+## Ncells  17214623  919.4   25396784 1356.4  25396784 1356.4
+## Vcells 370034297 2823.2  563702039 4300.8 469231522 3580.0
 ```
 
 ```r
@@ -700,8 +720,8 @@ rm(tx.hg19,tx.hg38,tx.mm10,snpsall,myBetas,myannotation,crosshyb,XY.probes,datam
 
 ```
 ##             used   (Mb) gc trigger   (Mb)  max used   (Mb)
-## Ncells  17408269  929.8   35288490 1884.7  29362358 1568.2
-## Vcells 387894124 2959.4  811906217 6194.4 676444746 5160.9
+## Ncells  17408293  929.8   35288552 1884.7  29362204 1568.2
+## Vcells 387894398 2959.4  811906935 6194.4 676445018 5160.9
 ```
 
 #### Can also look at table of top regions

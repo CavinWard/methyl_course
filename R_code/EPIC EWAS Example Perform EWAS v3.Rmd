@@ -9,9 +9,13 @@ Script for performing an EWAS of Chron's disease in fibroblast cell samples. Dat
 
 This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples (GSE99788). 
 
-To begin the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly.
+To begin clone the [GitHub repo](https://github.com/CavinWard/methyl_course/edit/master/README.md) and run the R script 'EPIC EWAS Example Package Install v1.R' which is in the R_code file. This will install the packages needed for the analysis. All packages should install with no errors (though some may have warnings, particuarly about the R version being used). This has been tested with R v3.5.1 with no errors. Though some older versions of these packages may need to be manually deleted before they will install properly. Calling the library('packagename') command can test if the packages installed properly. The packages bsseq and DelayedArray can often cause problems. If this happens delete them manually (go to your R library folder and delete the 'bsseq' and 'DelayedArray' subfolders) and then reinstall them using the proper version of Bioconductor for the R version you are using.
 
 You will then need to download the pre-processed methylation data files which are available at this [link](https://drive.google.com/open?id=1OKLguigp0jfz5ljRLeV_MEbrCHSjFLV6).
+
+Below is a Rmarkdown version of the code to be run in this class. The code is adapted from code available [here](https://github.com/allanjust/methylation-lab). 
+
+We begin by setting up the working directory and loading the libraries for the packages installed by 'EPIC EWAS EXAMPLE Package Install v1.R'
 
 ```{r message = FALSE}
 rm(list=ls())
@@ -188,6 +192,10 @@ plot(results.adj)
 #' create files which include both the effect estimates and p-values for further plots
 basic.merge <- merge(results.basic$results, results.basic$coefficients, by.x="CPG.Labels", by.y=0)
 full.merge <- merge(results.adj$results, results.adj$coefficients, by.x="CPG.Labels", by.y=0)
+
+### check that dataframes are in the same order
+identical(basic.merge$CPG.Labels, full.merge$CPG.Labels)
+
 #' CpGs with P < 1E-6 are highlighted in red and their size is proportional to the p-value (bigger point = smaller p-value)
 par(mfrow=c(1,1))
 plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size[basic.merge$P.value < 0.01], 
@@ -196,7 +204,8 @@ plot(basic.merge$effect.size[basic.merge$P.value < 0.01], full.merge$effect.size
 abline(a=0, b=1, col="red", lty="dashed")
 points(basic.merge$effect.size[basic.merge$P.value < 1E-6],full.merge$effect.size[basic.merge$P.value < 1E-6], 
        col="red", pch=19, cex=(1+(-log10(full.merge$P.value[basic.merge$P.value < 1E-6])/5) ) )
-
+p.e4 = (1+(-log10(1E-4)/5) ); p.e5 = (1+(-log10(1E-5)/5) ); p.e6 = (1+(-log10(1E-6)/5) )
+legend("topleft",legend=c("P = 1E-4", "P = 1E-5","P = 1E-6"), pt.cex=c(p.e4, p.e5, p.e6), pch=19, col="red", bty='n')
 ```
 
 
