@@ -1,4 +1,4 @@
-#Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
+# Script for performing an EWAS of Chron's disease in fibroblast cell samples. Data is from a [fibroblast EWAS](https://www.ncbi.nlm.nih.gov/pubmed/30589872)
 
 This project looks at DNA methylation data from the EPIC arrray and provides an example analysis using publicly available samples from fibroblast samples (GSE99788). 
 
